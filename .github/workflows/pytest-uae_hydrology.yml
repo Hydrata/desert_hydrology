@@ -8,7 +8,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Hydrata/uae_hydrology
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN__TEST_RUNNER_01 }}
+          token: ${{ secrets.GITHUB_ACTIONS_UAE_HYDROLOGY_TESTS_SECRET }}
           ref: main
           path: uae_hydrology
 
