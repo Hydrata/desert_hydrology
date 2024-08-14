@@ -1,0 +1,29 @@
+name: pytest-uae_hydrology
+run-name: pytest-uae_hydrology by ${{ github.actor }}
+on: [push]
+jobs:
+  run-uae_hydrology-pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Hydrata/uae_hydrology
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN__TEST_RUNNER_01 }}
+          ref: main
+          path: uae_hydrology
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+
+      - name: Run Ansible Playbook
+        run: ansible-playbook ./playbooks/install_grass
+
+      - name: Run Tests
+        run: python -m pytest ./uae_hydrology -rsP --color=yes
