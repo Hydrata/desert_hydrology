@@ -22,6 +22,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install ansible
 
+      - name: get the current working directory
+        run: |
+          echo "Current Working Directory:"
+          pwd
+          echo "Contents of Current Working Directory:"
+          ls -al
+          echo "Contents of Parent Directory:"
+          ls -al ../
+
       - name: Run Ansible Playbook
         run: ansible-playbook uae_hydrology/playbooks/install_grass
 
