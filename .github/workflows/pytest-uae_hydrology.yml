@@ -10,7 +10,6 @@ jobs:
           repository: Hydrata/uae_hydrology
           token: ${{ secrets.UAE_HYDROLOGY_GITHUB_ACTIONS_TESTS_SECRET }}
           ref: main
-          path: uae_hydrology
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -28,11 +27,13 @@ jobs:
           pwd
           echo "Contents of Current Working Directory:"
           ls -al
+          echo "Contents of ./uae_hydrology Directory:"
+          ls -al ./uae_hydrology
           echo "Contents of Parent Directory:"
           ls -al ../
 
       - name: Run Ansible Playbook
-        run: ansible-playbook uae_hydrology/playbooks/install_grass
+        run: ansible-playbook ./uae_hydrology/playbooks/install_grass
 
       - name: Run Tests
-        run: python -m pytest uae_hydrology/tests -rsP --color=yes
+        run: python -m pytest ./uae_hydrology/tests -rsP --color=yes
