@@ -1,0 +1,25 @@
+---
+- hosts: localhost
+  become: yes
+  tasks:
+    - name: Update repositories cache
+      apt:
+        update_cache: yes
+
+    - name: Add the UbuntuGIS unstable repository
+      apt_repository:
+        repo: ppa:ubuntugis/ubuntugis-unstable
+
+    - name: Install apt packages
+      apt:
+        name: "{{ item }}"
+      loop:
+        - grass
+
+    - name: Install pip packages
+      pip:
+        name: "{{ item }}"
+      loop:
+        - grass-session
+        - pygrass
+        - pytest
