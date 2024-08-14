@@ -27,13 +27,11 @@ jobs:
           pwd
           echo "Contents of Current Working Directory:"
           ls -al
-          echo "Contents of ./uae_hydrology Directory:"
-          ls -al ./uae_hydrology
           echo "Contents of Parent Directory:"
           ls -al ../
 
       - name: Run Ansible Playbook
-        run: ansible-playbook ./uae_hydrology/playbooks/install_grass
+        run: ansible-playbook ./playbooks/install_grass
 
       - name: Run Tests
-        run: python -m pytest ./uae_hydrology/tests -rsP --color=yes
+        run: python -m pytest ./tests -rsP --color=yes
