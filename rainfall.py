@@ -43,3 +43,4 @@ def process_rainfall():
 
         # Write the raster to a geotiff
         gs.run_command('r.out.gdal', input='cumulative_rainfall_interpolated_idw', output=output_tif_path.as_posix(), overwrite=True)
+        return output_tif_path.as_posix()
