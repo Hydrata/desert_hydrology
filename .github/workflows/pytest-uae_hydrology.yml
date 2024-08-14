@@ -23,7 +23,7 @@ jobs:
           pip install ansible
 
       - name: Run Ansible Playbook
-        run: ansible-playbook ./playbooks/install_grass
+        run: ansible-playbook uae_hydrology/playbooks/install_grass
 
       - name: Run Tests
-        run: python -m pytest ./uae_hydrology -rsP --color=yes
+        run: python -m pytest uae_hydrology/tests -rsP --color=yes
