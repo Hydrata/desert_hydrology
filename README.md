@@ -31,6 +31,18 @@ restart your shell to put ansible on the $PATH, then
 > Note if you're on Windows, using ubuntu on WSL2, you can't use the `/mnt/c/something/uae_hydrology` directory because your ubuntu user won't have write permissions. Copy the repo somewhere else like this:
 `sudo cp -r /mnt/c/hydrata/uae_hydrology /home/ubuntu/uae_hydrology`
 
+### Setup Google Earth Engine credentials
+
+Generate a Google "Service Account Key"
+
+Save it in a location on your machine - `/path/to/earth-engine-key.json`
+
+Copy the `.env.sample` file to `.env` and fill out your credential details (do not commit the .env file!)
+
+On the Google IAM page (https://console.cloud.google.com/iam-admin/iam) grant the service account the following permissions:
+* Earth Engine Resource Writer
+* Service Usage Consumer
+
 ## Execution
 The easiest way to run the project is to run the tests:
 

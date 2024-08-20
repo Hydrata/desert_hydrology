@@ -24,5 +24,7 @@
       pip:
         name: "{{ item }}"
       loop:
+        - earthengine-api
         - grass-session
+        - python-dotenv
         - pytest
