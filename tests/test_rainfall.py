@@ -1,5 +1,8 @@
 import os
-from uae_hydrology.rainfall import process_rainfall
+try:
+    from uae_hydrology.rainfall import process_rainfall
+except ImportError:
+    from uae_hydrology.uae_hydrology.rainfall import process_rainfall
 
 
 def test_process_rainfall():

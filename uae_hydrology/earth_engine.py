@@ -13,6 +13,8 @@ def initialize_earth_engine():
     else:
         raise EnvironmentError('EARTH_ENGINE_KEY environment variable not set or invalid.')
 
+
+
 def get_surface_water():
     initialize_earth_engine()
     print('get_surface_water code here')
