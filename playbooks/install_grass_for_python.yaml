@@ -1,6 +1,9 @@
 ---
 - hosts: localhost
   become: yes
+  vars:
+    parent_dir: "{{ playbook_dir | dirname }}"
+    venv_path: "{{ parent_dir }}/venv"
   tasks:
     - name: Update repositories cache
       apt:
@@ -20,11 +23,25 @@
       loop:
         - grass
 
-    - name: Install pip packages
+    - name: Ensure Python3 and venv are installed
+      apt:
+        name:
+          - python3
+          - python3-venv
+          - python3-pip
+
+    - name: Create a virtual environment
+      shell: "python3 -m venv {{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}"
+
+    - name: Install pip packages in virtual environment
       pip:
+        virtualenv: "{{ venv_path }}"
         name: "{{ item }}"
       loop:
         - earthengine-api
         - grass-session
         - python-dotenv
         - pytest
+        - geemap
