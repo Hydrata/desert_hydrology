@@ -22,7 +22,7 @@ jobs:
           pip install ansible
 
       - name: Run Ansible Playbook
-        run: ansible-playbook ./playbooks/install_grass_for_python.yaml -vvv
+        run: ansible-playbook ./playbooks/install_grass_for_python.yaml
 
       - name: Run Tests
-        run: python -m pytest ./tests -rsP --color=yes
+        run: ./venv/bin/python -m pytest ./tests -rsP --color=yes
