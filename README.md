@@ -46,7 +46,7 @@ On the Google IAM page (https://console.cloud.google.com/iam-admin/iam) grant th
 ## Execution
 The easiest way to run the project is to run the tests:
 
-`python -m pytest ./tests -rsP --color=yes`
+`./venv/bin/python -m pytest ./tests -rsP --color=yes`
 
 If the tests run successfully, you should have a new directory named `./output_data` with the output files saved there. The GRASS database will also be preserved in the `./database` directory, if needed for debugging.
 

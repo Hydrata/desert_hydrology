@@ -9,7 +9,7 @@ import grass.script as gs
 def process_rainfall():
     # Setup directories
     database_directory = Path.cwd() / 'database'
-    output_data_directory = Path.cwd() / 'output_data'
+    output_data_directory = Path.cwd() / 'output_data' / 'rainfall'
     database_directory.mkdir(exist_ok=True)
     output_data_directory.mkdir(exist_ok=True)
 
