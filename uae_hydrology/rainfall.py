@@ -11,7 +11,7 @@ def process_rainfall():
     database_directory = Path.cwd() / 'database'
     output_data_directory = Path.cwd() / 'output_data' / 'rainfall'
     database_directory.mkdir(exist_ok=True)
-    output_data_directory.mkdir(exist_ok=True)
+    output_data_directory.mkdir(parents=True, exist_ok=True)
 
     # Cleanup old files if they exist
     for directory in [database_directory, output_data_directory]:
