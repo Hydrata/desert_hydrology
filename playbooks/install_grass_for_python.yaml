@@ -45,3 +45,5 @@
         - python-dotenv
         - pytest
         - geemap
+        - rasterio
+        - numpy

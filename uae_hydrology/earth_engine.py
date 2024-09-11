@@ -4,6 +4,8 @@ import os
 import geemap
 import pathlib
 import shutil
+import rasterio
+from datetime import datetime
 
 
 def initialize_earth_engine():
@@ -19,120 +21,106 @@ def initialize_earth_engine():
         )
 
 
-def get_surface_water(country_name, collection_path, start_date, end_date):
+def get_surface_water(polygon, collection_path, search_date, label):
     initialize_earth_engine()
-    landsat_map = geemap.Map()
-    boundaries = ee.FeatureCollection("FAO/GAUL/2015/level0")
-    boundaries_level1 = ee.FeatureCollection("FAO/GAUL/2015/level1")
-    landsat_map.addLayer(boundaries, {}, "Country Boundaries")
-    # https://developers.google.com/earth-engine/datasets/catalog/FAO_GAUL_2015_level0
-    country = boundaries.filter(f"ADM0_NAME == '{country_name}'")
-    landsat_map.addLayer(country, {}, country_name)
-    landsat_map.center_object(country)
+    geom = ee.Geometry.Polygon(polygon)
+    feature = ee.Feature(geom, {})
+    region_of_interest = feature.geometry()
+    output_data_directory = pathlib.Path.cwd() / 'output_data' / 'surface_water' / label
+    output_data_directory.mkdir(parents=True, exist_ok=True)
+    date_format = "%Y-%m-%d"
+    datetime_obj = datetime.strptime(search_date, date_format)
 
-    collection_1 = (
+    dry_image = (
         ee.ImageCollection(collection_path)
-        .filterDate(start_date, end_date)
-        .filterBounds(country)
+        .filterDate("1900-01-01", datetime_obj)
+        .filterBounds(region_of_interest)
         .filterMetadata("CLOUD_COVER", "less_than", 25)
-        .filter(ee.Filter.eq("WRS_PATH", 160))
-        .filter(ee.Filter.eq("WRS_ROW", 43))
-        .sort("CLOUD_COVER")
+        .sort('system:time_start', False)
+        .first()
     )
 
-    def apply_scale_factors(image):
-        optical_bands = image.select("SR_B.").multiply(0.0000275).add(-0.2)
-        thermal_bands = image.select("ST_B.*").multiply(0.00341802).add(149.0)
-        return image.addBands(optical_bands, None, True).addBands(thermal_bands, None, True)
-
-    def customRemap(image, lowerLimit, upperLimit, newValue):
-        mask = image.gte(lowerLimit).And(image.lt(upperLimit))
-        return image.where(mask, newValue)
-
-    collection_1 = collection_1.map(apply_scale_factors)
-
-    image_map = geemap.Map()
-    image = collection_1.first()
-
-    # Compute the Normalized Difference Vegetation Index (NDVI).
-    nir = image.select("SR_B5")
-    red = image.select("SR_B4")
-    green = image.select("SR_B3")
-    ndvi = nir.subtract(red).divide(nir.add(red)).rename("NDVI")
-    ndwi = green.subtract(nir).divide(green.add(nir)).rename("NDWI")
-    ndvi_params = {"min": -1, "max": 1, "palette": ["blue", "white", "green"]}
-
-    vis_param = {"min": 0, "max": 0.3, "bands": ["SR_B4", "SR_B3", "SR_B2"], "gamma": 1.5}
-    ndwi_clipped = ndwi.clip(country)
-
-    image_map.addLayer(image, vis_param, "First mage")
-    image_map.addLayer(ndwi_clipped, ndviParams, "NDWI image")
-    image_map.centerObject(image, 8)
-
-    floodmask = ndwi_clipped.select("NDWI").gt(0.2)
-    image_map.addLayer(floodmask, {"palette": ["blue", "lightgreen"]}, "Flood mask")
-    floodMasked = ndwi_clipped.updateMask(floodmask)
-    image_map.addLayer(floodMasked, {"palette": ["blue"]}, "Flood masked")
-    flood_remaped = customRemap(floodMasked, 0, 2, 1)
-    image_map.addLayer(flood_remaped, {"palette": ["red"]}, "Flood remapped 19 April")
-
-    geemap.ee_export_image_to_drive(
-        # floodMasked, filename='floodMasked_19April2024.tif', scale=30, file_per_band=True
-        flood_remaped,
-        description="Dubai flood inundation 19 April",
-        folder="share",
-        fileNamePrefix="flood_dubai_19April",
-        scale=30,
+    wet_image = (
+        ee.ImageCollection(collection_path)
+        .filterDate(datetime_obj, "2100-01-01")
+        .filterMetadata("CLOUD_COVER", "less_than", 25)
+        .filterBounds(region_of_interest)
+        .sort('system:time_start', True)
+        .first()
     )
+    dry_date = datetime.utcfromtimestamp(dry_image.get('system:time_start').getInfo() / 1000.0).strftime('%Y-%m-%d')
+    wet_date = datetime.utcfromtimestamp(wet_image.get('system:time_start').getInfo() / 1000.0).strftime('%Y-%m-%d')
+    count_result = f"Found {dry_date} dry and {wet_date} wet image."
+    print(count_result)
+    if not dry_image or not wet_image:
+        print('Missing Images.')
+        raise "Missing images." + count_result
 
-    #
-    # collection2 = (
-    #     ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
-    #     .filterDate("2023-04-08", "2023-04-11")
-    #     .filterBounds(country)
-    #     .filterMetadata("CLOUD_COVER", "less_than", 25)
-    #     .filter(ee.Filter.eq("WRS_PATH", 160))
-    #     .filter(ee.Filter.eq("WRS_ROW", 43))
-    #     .sort("CLOUD_COVER")
-    # )
-    #
-    # print(collection2.size().getInfo())
-    #
-    # collection2 = collection2.map(apply_scale_factors)
-    #
-    # ap = geemap.Map()
-    # image = collection2.first()
-    #
-    # # Compute the Normalized Difference Vegetation Index (NDVI).
-    # nir = image.select("SR_B5")
-    # red = image.select("SR_B4")
-    # green = image.select("SR_B3")
-    # ndvi = nir.subtract(red).divide(nir.add(red)).rename("NDVI")
-    # ndwi = green.subtract(nir).divide(green.add(nir)).rename("NDWI")
-    # ndviParams = {"min": -1, "max": 1, "palette": ["blue", "white", "green"]}
-    #
-    # vis_param = {"min": 0, "max": 0.3, "bands": ["SR_B4", "SR_B3", "SR_B2"], "gamma": 1.5}
-    # ndvi_clipped = ndwi.clip(country)
-    #
-    # Map.addLayer(image, vis_param, "First mage")
-    # Map.addLayer(ndvi_clipped, ndviParams, "NDVI image")
-    # Map.centerObject(image, 8)
-    #
-    # floodmask = ndvi_clipped.select("NDWI").gt(0.2)
-    # Map.addLayer(floodmask, {"palette": ["blue", "lightgreen"]}, "Flood mask")
-    # floodMasked = ndvi_clipped.updateMask(floodmask)
-    # Map.addLayer(floodMasked, {"palette": ["blue"]}, "Flood masked")
-    # flood_remaped = customRemap(floodMasked, 0, 2, 1)
-    # Map.addLayer(flood_remaped, {"palette": ["red"]}, "Before Flood remapped")
-    #
-    # geemap.ee_export_image_to_drive(
-    #     # floodMasked, filename='floodMasked_19April2024.tif', scale=30, file_per_band=True
-    #     flood_remaped,
-    #     description="Dubai water surface",
-    #     folder="share",
-    #     fileNamePrefix="Dubai_Before_flood",
-    #     scale=30,
-    # )
+    def process_image(image_to_process, tag_to_process, label_to_process):
+        optical_bands = image_to_process.select("SR_B.").multiply(0.0000275).add(-0.2)
+        thermal_bands = image_to_process.select("ST_B.*").multiply(0.00341802).add(149.0)
+        image_to_process = image_to_process.addBands(optical_bands, None, True).addBands(thermal_bands, None, True)
+        timestamp = image_to_process.get('system:time_start').getInfo()
+        date_string = datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%Y-%m-%d')
+        nir_image = image_to_process.select("SR_B5")
+        green_image = image_to_process.select("SR_B3")
+        ndwi_image = green_image.subtract(nir_image).divide(green_image.add(nir_image)).rename("NDWI")
+        flood_mask_image = ndwi_image.select("NDWI").gt(0.2)
+        flood_masked_image = ndwi_image.updateMask(flood_mask_image)
+    
+        base_image_output_filepath = str(output_data_directory / f"{date_string}_{label_to_process}_{tag_to_process}_base_image.tif")
+        flood_masked_image_output_filepath = str(output_data_directory / f"{date_string}_{label_to_process}_{tag_to_process}_flood_masked_image.tif")
+    
+        for image, image_filepath in [
+            (image_to_process, base_image_output_filepath,),
+            (flood_masked_image, flood_masked_image_output_filepath,),
+        ]:
+            geemap.ee_export_image(
+                image,
+                scale=30,
+                region=region_of_interest,
+                file_per_band=False,
+                filename=image_filepath
+            )
+        return flood_masked_image_output_filepath
+
+    flood_image_filepaths = list()
+    for image, tag, label in [
+        (dry_image, 'dry', label,),
+        (wet_image, 'wet', label,),
+    ]:
+        flood_image_filepath = process_image(image, tag, label)
+        flood_image_filepaths.append(flood_image_filepath)
+
+    dry_flood_image_filepath, wet_flood_image_filepath = flood_image_filepaths
+    print(f"{flood_image_filepaths=}")
+    difference_threshold = 0.015
+
+    with rasterio.open(dry_flood_image_filepath, 'r+') as dry_flood:
+        dry_flood_tif = dry_flood.read(1)
+        nodata_value = dry_flood.nodata if dry_flood.nodata is not None else -9999
+        dry_flood_tif[dry_flood_tif == 0] = nodata_value
+        dry_flood.nodata = nodata_value
+        dry_flood.write(dry_flood_tif, 1)
+
+    with rasterio.open(wet_flood_image_filepath, 'r+') as wet_flood:
+        wet_flood_tif = wet_flood.read(1)
+        nodata_value = wet_flood.nodata if wet_flood.nodata is not None else -9999
+        wet_flood_tif[wet_flood_tif == 0] = nodata_value
+        wet_flood.nodata = nodata_value
+        wet_flood.write(wet_flood_tif, 1)
+
+    if dry_flood_tif.shape != wet_flood_tif.shape:
+        raise ValueError("The input rasters do not have the same dimensions")
+    difference = wet_flood_tif - dry_flood_tif
+    with rasterio.open(dry_flood_image_filepath) as src:
+        metadata = src.meta
+    metadata.update(dtype=rasterio.float32, nodata=nodata_value)
+    flood_difference_filepath = wet_flood_image_filepath.replace('wet', 'difference')
+    with rasterio.open(flood_difference_filepath, 'w', **metadata) as dst:
+        difference[difference < difference_threshold] = nodata_value
+        dst.write(difference.astype(rasterio.float32), 1)
+
 
 
 def get_rainfall(start_date_string, end_date_string, polygon):
