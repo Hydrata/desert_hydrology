@@ -27,9 +27,7 @@ restart your shell to put ansible on the $PATH, then
 ```cd /path/to/uae_hydrology/```
 
 ```ansible-playbook ./playbooks/install_grass_for_python.yaml --ask-become-pass```
-
-> Note if you're on Windows, using ubuntu on WSL2, you can't use the `/mnt/c/something/uae_hydrology` directory because your ubuntu user won't have write permissions. Copy the repo somewhere else like this:
-`sudo cp -r /mnt/c/hydrata/uae_hydrology /home/ubuntu/uae_hydrology`
+Ansible might ask for your "BECOME PASS". This is simply ansible terminology for your sudo password.
 
 ### Setup Google Earth Engine credentials
 
