@@ -20,6 +20,44 @@ def initialize_earth_engine():
             "EARTH_ENGINE_KEY environment variable not set or invalid."
         )
 
+def get_mosaic_dates(collection):
+    image_list = collection.toList(collection.size())
+    dates = []
+    for i in range(image_list.size().getInfo()):
+        image = ee.Image(image_list.get(i))
+        timestamp = image.get('system:time_start').getInfo()
+        date = datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%Y-%m-%d')
+        dates.append(date)
+    return dates
+
+
+def process_image(image_to_process, tag_to_process, label_to_process, date_string, output_data_directory, region_of_interest=None):
+    optical_bands = image_to_process.select("SR_B.").multiply(0.0000275).add(-0.2)
+    thermal_bands = image_to_process.select("ST_B.*").multiply(0.00341802).add(149.0)
+    image_to_process = image_to_process.addBands(optical_bands, None, True).addBands(thermal_bands, None, True)
+    timestamp = image_to_process.get('system:time_start').getInfo()
+    nir_image = image_to_process.select("SR_B5")
+    green_image = image_to_process.select("SR_B3")
+    ndwi_image = green_image.subtract(nir_image).divide(green_image.add(nir_image)).rename("NDWI")
+    flood_mask_image = ndwi_image.select("NDWI").gt(0.2)
+    flood_masked_image = ndwi_image.updateMask(flood_mask_image)
+
+    base_image_output_filepath = str(output_data_directory / f"{date_string}_{label_to_process}_{tag_to_process}_base_image.tif")
+    flood_masked_image_output_filepath = str(output_data_directory / f"{date_string}_{label_to_process}_{tag_to_process}_flood_masked_image.tif")
+
+    for image, image_filepath in [
+        (image_to_process, base_image_output_filepath,),
+        (flood_masked_image, flood_masked_image_output_filepath,),
+    ]:
+        geemap.ee_export_image(
+            image,
+            scale=30,
+            region=region_of_interest,
+            file_per_band=False,
+            filename=image_filepath
+        )
+    return flood_masked_image_output_filepath
+
 
 def get_surface_water(polygon, collection_path, search_date, label):
     initialize_earth_engine()
@@ -31,69 +69,40 @@ def get_surface_water(polygon, collection_path, search_date, label):
     date_format = "%Y-%m-%d"
     datetime_obj = datetime.strptime(search_date, date_format)
 
-    dry_image = (
+    dry_image_collection = (
         ee.ImageCollection(collection_path)
         .filterDate("1900-01-01", datetime_obj)
         .filterBounds(region_of_interest)
         .filterMetadata("CLOUD_COVER", "less_than", 25)
         .sort('system:time_start', False)
-        .first()
     )
 
-    wet_image = (
+    dry_image_dates = get_mosaic_dates(dry_image_collection)
+    print(f"{dry_image_dates=}")
+    dry_date = dry_image_dates[0]
+    dry_image = dry_image_collection.mosaic()
+
+    wet_image_collection = (
         ee.ImageCollection(collection_path)
         .filterDate(datetime_obj, "2100-01-01")
         .filterMetadata("CLOUD_COVER", "less_than", 25)
         .filterBounds(region_of_interest)
         .sort('system:time_start', True)
-        .first()
     )
-    dry_date = datetime.utcfromtimestamp(dry_image.get('system:time_start').getInfo() / 1000.0).strftime('%Y-%m-%d')
-    wet_date = datetime.utcfromtimestamp(wet_image.get('system:time_start').getInfo() / 1000.0).strftime('%Y-%m-%d')
+
+    wet_image_dates = get_mosaic_dates(dry_image_collection)
+    print(f"{wet_image_dates=}")
+    wet_date = wet_image_dates[-1]
+    wet_image = wet_image_collection.mosaic()
+
     count_result = f"Found {dry_date} dry and {wet_date} wet image."
     print(count_result)
     if not dry_image or not wet_image:
         print('Missing Images.')
         raise "Missing images." + count_result
 
-    def process_image(image_to_process, tag_to_process, label_to_process):
-        optical_bands = image_to_process.select("SR_B.").multiply(0.0000275).add(-0.2)
-        thermal_bands = image_to_process.select("ST_B.*").multiply(0.00341802).add(149.0)
-        image_to_process = image_to_process.addBands(optical_bands, None, True).addBands(thermal_bands, None, True)
-        timestamp = image_to_process.get('system:time_start').getInfo()
-        date_string = datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%Y-%m-%d')
-        nir_image = image_to_process.select("SR_B5")
-        green_image = image_to_process.select("SR_B3")
-        ndwi_image = green_image.subtract(nir_image).divide(green_image.add(nir_image)).rename("NDWI")
-        flood_mask_image = ndwi_image.select("NDWI").gt(0.2)
-        flood_masked_image = ndwi_image.updateMask(flood_mask_image)
-    
-        base_image_output_filepath = str(output_data_directory / f"{date_string}_{label_to_process}_{tag_to_process}_base_image.tif")
-        flood_masked_image_output_filepath = str(output_data_directory / f"{date_string}_{label_to_process}_{tag_to_process}_flood_masked_image.tif")
-    
-        for image, image_filepath in [
-            (image_to_process, base_image_output_filepath,),
-            (flood_masked_image, flood_masked_image_output_filepath,),
-        ]:
-            geemap.ee_export_image(
-                image,
-                scale=30,
-                region=region_of_interest,
-                file_per_band=False,
-                filename=image_filepath
-            )
-        return flood_masked_image_output_filepath
-
-    flood_image_filepaths = list()
-    for image, tag, label in [
-        (dry_image, 'dry', label,),
-        (wet_image, 'wet', label,),
-    ]:
-        flood_image_filepath = process_image(image, tag, label)
-        flood_image_filepaths.append(flood_image_filepath)
-
-    dry_flood_image_filepath, wet_flood_image_filepath = flood_image_filepaths
-    print(f"{flood_image_filepaths=}")
+    dry_flood_image_filepath = process_image(dry_image, 'dry', label, dry_date, output_data_directory, region_of_interest)
+    wet_flood_image_filepath = process_image(wet_image, 'wet', label, wet_date, output_data_directory, region_of_interest)
     difference_threshold = 0.015
 
     with rasterio.open(dry_flood_image_filepath, 'r+') as dry_flood:

@@ -35,5 +35,5 @@ def test_get_rainfall():
         [52.83, 26.97],
         [52.83, 22.76]
     ]]
-    ouput_directory = get_rainfall(start_date, end_date, polygon)
-    assert len(os.listdir(ouput_directory)) == 97
+    output_directory = get_rainfall(start_date, end_date, polygon)
+    assert len(os.listdir(output_directory)) == 97
