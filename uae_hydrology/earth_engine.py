@@ -85,14 +85,15 @@ def get_surface_water(polygon, collection_path, search_date, label):
     wet_image_collection = (
         ee.ImageCollection(collection_path)
         .filterDate(datetime_obj, "2100-01-01")
-        .filterMetadata("CLOUD_COVER", "less_than", 25)
         .filterBounds(region_of_interest)
+        .filterMetadata("CLOUD_COVER", "less_than", 25)
         .sort('system:time_start', True)
+        .limit(1)
     )
 
-    wet_image_dates = get_mosaic_dates(dry_image_collection)
+    wet_image_dates = get_mosaic_dates(wet_image_collection)
     print(f"{wet_image_dates=}")
-    wet_date = wet_image_dates[-1]
+    wet_date = wet_image_dates[0]
     wet_image = wet_image_collection.mosaic()
 
     count_result = f"Found {dry_date} dry and {wet_date} wet image."

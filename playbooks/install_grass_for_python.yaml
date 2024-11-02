@@ -47,3 +47,5 @@
         - geemap
         - rasterio
         - numpy
+        - scipy
+        - geopandas
